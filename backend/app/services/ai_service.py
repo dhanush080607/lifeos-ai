@@ -21,7 +21,8 @@ def analyze_context(user_text: str) -> ContextResponse:
     prompt = f"""
 You are the Context Intelligence Engine for LifeOS.
 
-LifeOS converts scattered personal information into clear, prioritized actions.
+LifeOS converts scattered personal information into clear,
+prioritized actions.
 
 Analyze the user's input and extract:
 
@@ -32,18 +33,52 @@ Analyze the user's input and extract:
 5. The single most important next action
 6. A concise explanation for that recommendation
 
-Important rules:
+IMPORTANT TASK RULES:
 
-- Do not invent deadlines that the user did not provide.
-- Do not invent tasks that have no reasonable connection to the input.
-- If information is missing, use an empty list or "Not specified".
-- Prioritize tasks based on urgency, importance, deadlines, and dependencies.
+- Every task must represent a concrete action.
+- Assign a realistic estimated time in minutes.
+- Assign a priority: low, medium, or high.
+- If a task has a deadline mentioned by the user, attach that
+  deadline to the task.
+- If a task has no known deadline, use "Not specified".
+- Do not invent deadlines.
+- Do not invent tasks unrelated to the user's input.
+- Do not invent available time.
+- If available time is missing, use "Not specified".
+
+IMPORTANT DEADLINE RULES:
+
+- Extract only deadlines explicitly stated or clearly implied
+  by the user's input.
+- Preserve the user's wording when possible.
+- Examples:
+    "tomorrow"
+    "Friday"
+    "next Monday"
+    "August 20"
+- Do not convert an unspecified deadline into a date.
+- Do not assume every task has a deadline.
+
+IMPORTANT PRIORITY RULES:
+
+- Consider urgency.
+- Consider deadlines.
+- Consider importance.
+- Consider dependencies.
+- A task due sooner should generally receive greater urgency
+  than an otherwise similar task due later.
 - The recommended action must be a concrete action.
-- Estimated time should be realistic.
-- Return only the requested structured data.
+
+IMPORTANT RECOMMENDATION RULES:
+
+Choose the single most important action the user should take
+next based on urgency, importance, deadline, and dependencies.
+
+Return only the requested structured data.
 
 USER INPUT:
 {user_text}
+
 """
 
     response = client.models.generate_content(

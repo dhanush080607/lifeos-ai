@@ -1,13 +1,37 @@
 import type { ContextResponse } from "../types/context";
 
+interface TimePlan {
+  availableMinutes: number;
+  plannedMinutes: number;
+  remainingMinutes: number;
+  overflowMinutes: number;
+  plannedTasks: {
+    taskIndex: number;
+    plannedMinutes: number;
+    fullTaskMinutes: number;
+    partial: boolean;
+  }[];
+}
+
 interface AnalysisResultProps {
   result: ContextResponse;
   onTaskComplete: (taskIndex: number) => void;
+
+  // Shared planning state from App.tsx
+  hasAvailableTime: boolean;
+  planningTime: string;
+  timePlan: TimePlan;
+
+  setAvailableTime: (time: string) => void;
 }
 
 function AnalysisResult({
   result,
   onTaskComplete,
+  hasAvailableTime,
+  planningTime,
+  timePlan,
+  setAvailableTime,
 }: AnalysisResultProps) {
   const completedTasks = result.tasks.filter(
     (task) => task.completed
@@ -17,7 +41,10 @@ function AnalysisResult({
 
   return (
     <section className="w-full max-w-3xl space-y-5">
-      {/* Next Action */}
+
+      {/* ======================================
+          NEXT ACTION
+      ====================================== */}
       <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
         <p className="text-sm font-medium uppercase tracking-widest text-cyan-400">
           Your next action
@@ -32,7 +59,9 @@ function AnalysisResult({
         </p>
       </div>
 
-      {/* Goals */}
+      {/* ======================================
+          GOALS
+      ====================================== */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-white">
           Goals
@@ -51,7 +80,9 @@ function AnalysisResult({
         )}
       </div>
 
-      {/* Tasks */}
+      {/* ======================================
+          TASKS
+      ====================================== */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-white">
@@ -75,7 +106,8 @@ function AnalysisResult({
                 }`}
               >
                 <div className="flex items-center gap-4">
-                  {/* Complete button */}
+
+                  {/* Completion button */}
                   <button
                     type="button"
                     onClick={() => onTaskComplete(index)}
@@ -133,7 +165,9 @@ function AnalysisResult({
         </div>
       </div>
 
-      {/* Deadlines */}
+      {/* ======================================
+          DEADLINES
+      ====================================== */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
         <h3 className="text-lg font-semibold text-white">
           Deadlines
@@ -163,15 +197,221 @@ function AnalysisResult({
         )}
       </div>
 
-      {/* Available Time */}
+      {/* ======================================
+          AVAILABLE TIME
+      ====================================== */}
       <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-        <h3 className="text-lg font-semibold text-white">
-          Available Time
-        </h3>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-white">
+              Available Time
+            </h3>
 
-        <p className="mt-3 text-gray-400">
-          {result.available_time}
+            <p className="mt-2 text-sm text-gray-500">
+              Tell LifeOS how much time you have so it
+              can build your plan.
+            </p>
+          </div>
+
+          <span className="text-2xl">
+            ⏱
+          </span>
+        </div>
+
+        {/* Missing time warning */}
+        {!hasAvailableTime && !planningTime && (
+          <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+            <p className="text-sm text-yellow-400">
+              ⚠️ Available time was not specified.
+            </p>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Choose how much time you have available.
+            </p>
+          </div>
+        )}
+
+        {/* Time buttons */}
+        <div className="mt-5 flex flex-wrap gap-3">
+
+          <button
+            type="button"
+            onClick={() =>
+              setAvailableTime("15 minutes")
+            }
+            className={`rounded-xl border px-4 py-2 text-sm transition ${
+              planningTime === "15 minutes"
+                ? "border-cyan-400 bg-cyan-400/10 text-cyan-400"
+                : "border-white/10 text-gray-300 hover:border-cyan-400/40 hover:text-cyan-400"
+            }`}
+          >
+            15 min
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setAvailableTime("30 minutes")
+            }
+            className={`rounded-xl border px-4 py-2 text-sm transition ${
+              planningTime === "30 minutes"
+                ? "border-cyan-400 bg-cyan-400/10 text-cyan-400"
+                : "border-white/10 text-gray-300 hover:border-cyan-400/40 hover:text-cyan-400"
+            }`}
+          >
+            30 min
+          </button>
+
+          <button
+            type="button"
+            onClick={() =>
+              setAvailableTime("60 minutes")
+            }
+            className={`rounded-xl border px-4 py-2 text-sm transition ${
+              planningTime === "60 minutes"
+                ? "border-cyan-400 bg-cyan-400/10 text-cyan-400"
+                : "border-white/10 text-gray-300 hover:border-cyan-400/40 hover:text-cyan-400"
+            }`}
+          >
+            1 hour
+          </button>
+
+          {/* Original */}
+          <button
+            type="button"
+            onClick={() => {
+              if (hasAvailableTime) {
+                setAvailableTime(
+                  result.available_time
+                );
+              }
+            }}
+            disabled={!hasAvailableTime}
+            className="rounded-xl border border-cyan-400/20 px-4 py-2 text-sm text-cyan-400 transition hover:bg-cyan-400/10 disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            Original
+          </button>
+        </div>
+
+        {/* Current planning time */}
+        <p className="mt-5 text-gray-400">
+          Current planning time:{" "}
+          <span className="font-medium text-white">
+            {planningTime || "Not specified"}
+          </span>
         </p>
+      </div>
+
+      {/* ======================================
+          TONIGHT'S PLAN
+      ====================================== */}
+      <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
+
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium uppercase tracking-widest text-cyan-400">
+              Tonight's Plan
+            </p>
+
+            <h3 className="mt-2 text-xl font-semibold text-white">
+              {timePlan.plannedMinutes} of{" "}
+              {timePlan.availableMinutes} minutes planned
+            </h3>
+          </div>
+
+          <span className="text-2xl">
+            ⏱
+          </span>
+        </div>
+
+        {/* Planned tasks */}
+        {timePlan.plannedTasks.length > 0 ? (
+          <div className="mt-5 space-y-3">
+
+            {timePlan.plannedTasks.map(
+              (plannedTask) => {
+                const task =
+                  result.tasks[
+                    plannedTask.taskIndex
+                  ];
+
+                if (!task) return null;
+
+                return (
+                  <div
+                    key={plannedTask.taskIndex}
+                    className="rounded-xl bg-black/30 p-4"
+                  >
+                    <div className="flex items-center justify-between">
+
+                      <div>
+                        <p className="font-medium text-white">
+                          {task.title}
+                        </p>
+
+                        <p className="mt-1 text-sm text-gray-500">
+                          {plannedTask.plannedMinutes} minutes
+                        </p>
+                      </div>
+
+                      <span
+                        className={
+                          plannedTask.partial
+                            ? "text-yellow-400"
+                            : "text-cyan-400"
+                        }
+                      >
+                        {plannedTask.partial
+                          ? "Partial"
+                          : "Planned"}
+                      </span>
+                    </div>
+
+                    {/* Partial task */}
+                    {plannedTask.partial && (
+                      <p className="mt-3 text-sm text-yellow-400">
+                        {plannedTask.fullTaskMinutes -
+                          plannedTask.plannedMinutes}{" "}
+                        minutes remaining after this
+                        session.
+                      </p>
+                    )}
+                  </div>
+                );
+              }
+            )}
+          </div>
+        ) : (
+          <p className="mt-5 text-gray-500">
+            No tasks fit into the available time.
+          </p>
+        )}
+
+        {/* Overflow */}
+        {timePlan.overflowMinutes > 0 && (
+          <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+            <p className="text-sm text-yellow-400">
+              ⚠️ {timePlan.overflowMinutes} minutes
+              of work remain after tonight's plan.
+            </p>
+
+            <p className="mt-2 text-sm text-gray-500">
+              LifeOS has prioritized the highest-priority
+              work first.
+            </p>
+          </div>
+        )}
+
+        {/* Everything fits */}
+        {timePlan.overflowMinutes === 0 &&
+          timePlan.plannedTasks.length > 0 && (
+            <div className="mt-5 rounded-xl border border-green-400/20 bg-green-400/5 p-4">
+              <p className="text-sm text-green-400">
+                ✓ Your planned tasks fit within your
+                available time.
+              </p>
+            </div>
+          )}
       </div>
     </section>
   );
