@@ -18,18 +18,87 @@ function App() {
 
       const data = await analyzeContext(text);
 
-      setResult(data);
+      // React owns task state.
+      // Gemini only creates the tasks.
+      const resultWithState: ContextResponse = {
+        ...data,
+        tasks: data.tasks.map((task) => ({
+          ...task,
+          completed: false,
+        })),
+      };
+
+      setResult(resultWithState);
     } catch (error) {
       console.error(error);
-      setError("Unable to analyze your situation. Please try again.");
+      setError(
+        "Unable to analyze your situation. Please check that the backend is running and try again."
+      );
     } finally {
       setLoading(false);
     }
   };
+  const getNextAction = (currentResult: ContextResponse) => {
+  const incompleteTasks = currentResult.tasks.filter(
+    (task) => !task.completed
+  );
+
+  if (incompleteTasks.length === 0) {
+    return {
+      action: "All tasks completed!",
+      reasoning:
+        "You have completed all the tasks LifeOS identified. Great work!",
+    };
+  }
+
+  const priorityOrder = {
+    high: 1,
+    medium: 2,
+    low: 3,
+  };
+
+  const nextTask = [...incompleteTasks].sort(
+    (a, b) =>
+      priorityOrder[a.priority] -
+      priorityOrder[b.priority]
+  )[0];
+
+  return {
+    action: nextTask.title,
+    reasoning: `This is your highest-priority incomplete task and is estimated to take ${nextTask.estimated_minutes} minutes.`,
+  };
+};
+
+  const handleTaskComplete = (taskIndex: number) => {
+  if (!result) return;
+
+  const updatedTasks = result.tasks.map((task, index) =>
+    index === taskIndex
+      ? {
+          ...task,
+          completed: !task.completed,
+        }
+      : task
+  );
+
+  const updatedResult = {
+    ...result,
+    tasks: updatedTasks,
+  };
+
+  const nextAction = getNextAction(updatedResult);
+
+  setResult({
+    ...updatedResult,
+    recommended_action: nextAction.action,
+    reasoning: nextAction.reasoning,
+  });
+};
 
   return (
     <main className="min-h-screen bg-black px-6 py-16 text-white">
       <div className="mx-auto flex max-w-5xl flex-col items-center">
+        {/* Header */}
         <div className="mb-12 text-center">
           <p className="text-sm font-medium uppercase tracking-[0.3em] text-cyan-400">
             AI Action System
@@ -45,26 +114,33 @@ function App() {
           </p>
         </div>
 
+        {/* Input */}
         <ContextInput
           onAnalyze={handleAnalyze}
           loading={loading}
         />
 
+        {/* Error */}
         {error && (
-          <p className="mt-6 text-red-400">
+          <div className="mt-6 w-full max-w-3xl rounded-xl border border-red-400/20 bg-red-400/5 p-4 text-red-400">
             {error}
-          </p>
+          </div>
         )}
 
+        {/* Loading */}
         {loading && (
-          <p className="mt-8 text-gray-400">
+          <div className="mt-8 text-gray-400">
             LifeOS is understanding your situation...
-          </p>
+          </div>
         )}
 
+        {/* Results */}
         {result && (
           <div className="mt-12 w-full">
-            <AnalysisResult result={result} />
+            <AnalysisResult
+              result={result}
+              onTaskComplete={handleTaskComplete}
+            />
           </div>
         )}
       </div>

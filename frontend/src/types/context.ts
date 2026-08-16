@@ -4,6 +4,7 @@ export interface Task {
   title: string;
   priority: Priority;
   estimated_minutes: number;
+  completed: boolean;
 }
 
 export interface Deadline {

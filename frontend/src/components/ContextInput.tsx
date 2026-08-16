@@ -5,7 +5,10 @@ interface ContextInputProps {
   loading: boolean;
 }
 
-function ContextInput({ onAnalyze, loading }: ContextInputProps) {
+function ContextInput({
+  onAnalyze,
+  loading,
+}: ContextInputProps) {
   const [text, setText] = useState("");
 
   const handleSubmit = () => {
@@ -33,6 +36,7 @@ function ContextInput({ onAnalyze, loading }: ContextInputProps) {
       />
 
       <button
+        type="button"
         onClick={handleSubmit}
         disabled={!text.trim() || loading}
         className="mt-4 rounded-xl bg-cyan-400 px-6 py-3 font-semibold text-black transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-40"
