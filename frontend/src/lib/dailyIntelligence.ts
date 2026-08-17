@@ -25,9 +25,24 @@ export interface DailyIntelligence {
   completionPercentage: number;
 }
 
+/*
+ * ============================================
+ * DAILY INTELLIGENCE
+ * ============================================
+ *
+ * Calculates the current state of the user's
+ * tasks, deadlines, workload, and progress.
+ */
+
 export function getDailyIntelligence(
   tasks: Task[]
 ): DailyIntelligence {
+  /*
+   * ==========================================
+   * SPLIT TASKS
+   * ==========================================
+   */
+
   const completedTasks = tasks.filter(
     (task) => task.completed
   );
@@ -37,9 +52,9 @@ export function getDailyIntelligence(
   );
 
   /*
-   * ============================================
+   * ==========================================
    * DEADLINE COUNTS
-   * ============================================
+   * ==========================================
    */
 
   let overdueTasks = 0;
@@ -48,18 +63,18 @@ export function getDailyIntelligence(
   let upcomingTasks = 0;
 
   /*
-   * ============================================
+   * ==========================================
    * TIME COUNTS
-   * ============================================
+   * ==========================================
    */
 
   let completedMinutes = 0;
   let remainingMinutes = 0;
 
   /*
-   * ============================================
-   * COMPLETED TASKS
-   * ============================================
+   * ==========================================
+   * COMPLETED TASK TIME
+   * ==========================================
    */
 
   for (const task of completedTasks) {
@@ -70,9 +85,9 @@ export function getDailyIntelligence(
   }
 
   /*
-   * ============================================
+   * ==========================================
    * REMAINING TASKS
-   * ============================================
+   * ==========================================
    */
 
   for (const task of remainingTasks) {
@@ -82,9 +97,7 @@ export function getDailyIntelligence(
     );
 
     const status: DeadlineStatus =
-      getDeadlineStatus(
-        task.deadline
-      );
+      getDeadlineStatus(task.deadline ?? "");
 
     switch (status) {
       case "today":
@@ -105,25 +118,23 @@ export function getDailyIntelligence(
   }
 
   /*
-   * ============================================
+   * ==========================================
    * OVERDUE
-   * ============================================
+   * ==========================================
    *
-   * The current deadline.ts does not have an
-   * "overdue" status.
+   * The current deadline utility does not
+   * detect overdue deadlines yet.
    *
-   * Therefore we do NOT invent overdue data.
-   *
-   * This remains 0 until deadline.ts gains
-   * explicit overdue detection.
+   * Keep this at 0 until explicit overdue
+   * detection is added to deadline.ts.
    */
 
   overdueTasks = 0;
 
   /*
-   * ============================================
+   * ==========================================
    * TOTALS
-   * ============================================
+   * ==========================================
    */
 
   const totalTasks = tasks.length;
@@ -139,6 +150,12 @@ export function getDailyIntelligence(
       0
     );
 
+  /*
+   * ==========================================
+   * COMPLETION PERCENTAGE
+   * ==========================================
+   */
+
   const completionPercentage =
     totalTasks === 0
       ? 0
@@ -149,9 +166,9 @@ export function getDailyIntelligence(
         );
 
   /*
-   * ============================================
+   * ==========================================
    * INTELLIGENCE FLAGS
-   * ============================================
+   * ==========================================
    */
 
   const hasDeadlineToday =
@@ -165,9 +182,9 @@ export function getDailyIntelligence(
     todayTasks > 0;
 
   /*
-   * ============================================
-   * RETURN
-   * ============================================
+   * ==========================================
+   * RETURN INTELLIGENCE
+   * ==========================================
    */
 
   return {

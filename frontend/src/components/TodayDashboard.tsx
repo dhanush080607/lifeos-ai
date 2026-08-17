@@ -19,25 +19,42 @@ function TodayDashboard({
 }: TodayDashboardProps) {
   /*
    * ============================================
-   * TASK PROGRESS
+   * DAILY INTELLIGENCE
    * ============================================
    */
 
-  const completedTasks = result.tasks.filter(
-    (task) => task.completed
-  ).length;
+  const intelligence =
+    getDailyIntelligence(result.tasks);
 
-  const totalTasks = result.tasks.length;
+  /*
+   * ============================================
+   * DEADLINE LABEL
+   * ============================================
+   *
+   * getDeadlineStatus() returns only a status.
+   * Therefore we create the display label here.
+   */
 
-  const remainingTasks =
-    totalTasks - completedTasks;
+  const getDeadlineLabel = (
+    status: ReturnType<typeof getDeadlineStatus>
+  ): string => {
+    switch (status) {
+      case "today":
+        return "Due today";
 
-  const progress =
-    totalTasks === 0
-      ? 0
-      : Math.round(
-          (completedTasks / totalTasks) * 100
-        );
+      case "tomorrow":
+        return "Due tomorrow";
+
+      case "upcoming":
+        return "Upcoming";
+
+      case "unspecified":
+        return "";
+
+      default:
+        return "";
+    }
+  };
 
   /*
    * ============================================
@@ -47,7 +64,7 @@ function TodayDashboard({
 
   const getDeadlineColor = (
     status: ReturnType<typeof getDeadlineStatus>
-  ) => {
+  ): string => {
     switch (status) {
       case "today":
         return "text-orange-400";
@@ -55,12 +72,12 @@ function TodayDashboard({
       case "tomorrow":
         return "text-yellow-400";
 
-      case "unspecified":
-        return "text-gray-500";
-
       case "upcoming":
         return "text-cyan-400";
 
+      case "unspecified":
+        return "text-gray-500";
+
       default:
         return "text-gray-500";
     }
@@ -68,41 +85,9 @@ function TodayDashboard({
 
   /*
    * ============================================
-   * DEADLINE LABEL
+   * RETURN
    * ============================================
    */
-
-  const getDeadlineLabel = (
-    deadline: string
-  ) => {
-    const status = getDeadlineStatus(deadline);
-
-    switch (status) {
-      case "today":
-        return "Due today";
-
-      case "tomorrow":
-        return "Due tomorrow";
-
-      case "upcoming":
-        return `Due ${deadline}`;
-
-      case "unspecified":
-        return "";
-
-      default:
-        return "";
-    }
-  };
-
-  /*
-   * ============================================
-   * DAILY INTELLIGENCE
-   * ============================================
-   */
-
-  const dailyIntelligence =
-    getDailyIntelligence(result);
 
   return (
     <section className="mt-12 w-full max-w-5xl space-y-6">
@@ -122,7 +107,7 @@ function TodayDashboard({
 
         <p className="mt-2 text-gray-500">
           Your current priorities, deadlines,
-          and available-time plan.
+          workload, and focused plan.
         </p>
       </div>
 
@@ -130,23 +115,77 @@ function TodayDashboard({
           DAILY INTELLIGENCE
       ====================================== */}
 
-      {dailyIntelligence && (
-        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-6">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
 
-          <p className="text-sm font-medium uppercase tracking-widest text-cyan-400">
-            Daily Intelligence
+        {/* Completion */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <p className="text-sm text-gray-500">
+            Completion
           </p>
 
-          <h3 className="mt-3 text-xl font-semibold text-white">
-            {dailyIntelligence.title}
-          </h3>
-
-          <p className="mt-2 leading-relaxed text-gray-400">
-            {dailyIntelligence.message}
+          <p className="mt-2 text-3xl font-bold text-white">
+            {intelligence.completionPercentage}%
           </p>
 
+          <p className="mt-1 text-xs text-gray-500">
+            {intelligence.completedTasks} of{" "}
+            {intelligence.totalTasks} tasks
+          </p>
         </div>
-      )}
+
+        {/* Remaining Time */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <p className="text-sm text-gray-500">
+            Remaining Work
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-white">
+            {intelligence.remainingMinutes}
+            <span className="ml-1 text-sm font-normal text-gray-500">
+              min
+            </span>
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            {intelligence.remainingTasks} tasks remaining
+          </p>
+        </div>
+
+        {/* Urgent Work */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <p className="text-sm text-gray-500">
+            Urgent Work
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-white">
+            {intelligence.todayTasks}
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            deadline today
+          </p>
+        </div>
+
+        {/* Tomorrow */}
+
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <p className="text-sm text-gray-500">
+            Tomorrow
+          </p>
+
+          <p className="mt-2 text-3xl font-bold text-white">
+            {intelligence.tomorrowTasks}
+          </p>
+
+          <p className="mt-1 text-xs text-gray-500">
+            upcoming tomorrow
+          </p>
+        </div>
+
+      </div>
 
       {/* ======================================
           PROGRESS
@@ -162,12 +201,13 @@ function TodayDashboard({
             </p>
 
             <p className="mt-1 text-3xl font-bold text-white">
-              {progress}%
+              {intelligence.completionPercentage}%
             </p>
           </div>
 
           <p className="text-sm text-gray-500">
-            {completedTasks} / {totalTasks} completed
+            {intelligence.completedTasks} /{" "}
+            {intelligence.totalTasks} completed
           </p>
 
         </div>
@@ -177,19 +217,24 @@ function TodayDashboard({
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-valuenow={progress}
+          aria-valuenow={
+            intelligence.completionPercentage
+          }
         >
           <div
             className="h-full rounded-full bg-cyan-400 transition-all duration-500"
             style={{
-              width: `${progress}%`,
+              width: `${intelligence.completionPercentage}%`,
             }}
           />
         </div>
 
         <p className="mt-3 text-sm text-gray-500">
-          {remainingTasks} task
-          {remainingTasks === 1 ? "" : "s"} remaining
+          {intelligence.remainingTasks} task
+          {intelligence.remainingTasks === 1
+            ? ""
+            : "s"}{" "}
+          remaining
         </p>
 
       </div>
@@ -222,12 +267,19 @@ function TodayDashboard({
 
         <div className="flex items-center justify-between">
 
-          <h3 className="text-xl font-semibold text-white">
-            Today's Tasks
-          </h3>
+          <div>
+            <h3 className="text-xl font-semibold text-white">
+              Today's Tasks
+            </h3>
+
+            <p className="mt-1 text-sm text-gray-500">
+              Click a task to mark it complete.
+            </p>
+          </div>
 
           <span className="text-sm text-gray-500">
-            {completedTasks}/{totalTasks}
+            {intelligence.completedTasks}/
+            {intelligence.totalTasks}
           </span>
 
         </div>
@@ -235,14 +287,17 @@ function TodayDashboard({
         <div className="mt-5 space-y-3">
 
           {result.tasks.length > 0 ? (
-
             result.tasks.map((task, index) => {
 
               const deadlineStatus =
-                getDeadlineStatus(task.deadline);
+                getDeadlineStatus(
+                  task.deadline ?? ""
+                );
 
               const deadlineLabel =
-                getDeadlineLabel(task.deadline);
+                getDeadlineLabel(
+                  deadlineStatus
+                );
 
               return (
                 <button
@@ -263,7 +318,7 @@ function TodayDashboard({
 
                   <div className="flex min-w-0 items-center gap-3">
 
-                    {/* Completion indicator */}
+                    {/* Completion */}
 
                     <span
                       className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-sm ${
@@ -277,7 +332,7 @@ function TodayDashboard({
                         : "○"}
                     </span>
 
-                    {/* Task details */}
+                    {/* Details */}
 
                     <div className="min-w-0">
 
@@ -337,15 +392,12 @@ function TodayDashboard({
                 </button>
               );
             })
-
           ) : (
-
             <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-center">
               <p className="text-gray-500">
                 No tasks available.
               </p>
             </div>
-
           )}
 
         </div>
@@ -380,18 +432,17 @@ function TodayDashboard({
         <div className="mt-5 space-y-3">
 
           {result.deadlines.length > 0 ? (
-
             result.deadlines.map(
               (deadline, index) => {
 
                 const deadlineStatus =
                   getDeadlineStatus(
-                    deadline.deadline
+                    deadline.deadline ?? ""
                   );
 
                 const deadlineLabel =
                   getDeadlineLabel(
-                    deadline.deadline
+                    deadlineStatus
                   );
 
                 return (
@@ -406,16 +457,13 @@ function TodayDashboard({
                         {deadline.title}
                       </p>
 
-                      {deadlineStatus !==
-                        "unspecified" && (
-                        <p
-                          className={`mt-1 text-xs ${getDeadlineColor(
-                            deadlineStatus
-                          )}`}
-                        >
-                          {deadlineLabel}
-                        </p>
-                      )}
+                      <p
+                        className={`mt-1 text-xs ${getDeadlineColor(
+                          deadlineStatus
+                        )}`}
+                      >
+                        {deadlineLabel}
+                      </p>
 
                     </div>
 
@@ -427,15 +475,12 @@ function TodayDashboard({
                 );
               }
             )
-
           ) : (
-
             <div className="rounded-xl border border-white/10 bg-black/20 p-6 text-center">
               <p className="text-gray-500">
                 No upcoming deadlines.
               </p>
             </div>
-
           )}
 
         </div>
@@ -458,8 +503,7 @@ function TodayDashboard({
 
             <h3 className="mt-2 text-xl font-semibold text-white">
               {timePlan.plannedMinutes} /{" "}
-              {timePlan.availableMinutes} minutes
-              planned
+              {timePlan.availableMinutes} minutes planned
             </h3>
 
           </div>
@@ -487,8 +531,8 @@ function TodayDashboard({
             </p>
 
             <p className="mt-1 text-sm text-gray-500">
-              Set your available time above to
-              generate a focused plan.
+              Set your available time above
+              to generate a focused plan.
             </p>
 
           </div>
@@ -498,78 +542,79 @@ function TodayDashboard({
 
         {timePlan.availableMinutes > 0 &&
           timePlan.plannedTasks.length > 0 && (
+            <div className="mt-5 space-y-3">
 
-          <div className="mt-5 space-y-3">
+              {timePlan.plannedTasks.map(
+                (plannedTask) => {
 
-            {timePlan.plannedTasks.map(
-              (plannedTask) => {
+                  const task =
+                    result.tasks[
+                      plannedTask.taskIndex
+                    ];
 
-                const task =
-                  result.tasks[
-                    plannedTask.taskIndex
-                  ];
+                  if (!task) {
+                    return null;
+                  }
 
-                if (!task) {
-                  return null;
-                }
+                  return (
+                    <div
+                      key={
+                        plannedTask.taskIndex
+                      }
+                      className="rounded-xl bg-black/30 p-4"
+                    >
 
-                return (
-                  <div
-                    key={plannedTask.taskIndex}
-                    className="rounded-xl bg-black/30 p-4"
-                  >
+                      <div className="flex items-center justify-between gap-4">
 
-                    <div className="flex items-center justify-between gap-4">
+                        <div className="min-w-0">
 
-                      <div className="min-w-0">
+                          <p className="break-words text-white">
+                            {task.title}
+                          </p>
 
-                        <p className="break-words text-white">
-                          {task.title}
-                        </p>
+                          {task.deadline &&
+                            task.deadline !==
+                              "Not specified" && (
+                              <p className="mt-1 text-xs text-gray-500">
+                                Deadline:{" "}
+                                {task.deadline}
+                              </p>
+                            )}
 
-                        {task.deadline &&
-                          task.deadline !==
-                            "Not specified" && (
-                            <p className="mt-1 text-xs text-gray-500">
-                              Deadline:{" "}
-                              {task.deadline}
-                            </p>
-                          )}
+                        </div>
+
+                        <span className="shrink-0 text-sm font-medium text-cyan-400">
+                          {plannedTask.plannedMinutes} min
+                        </span>
 
                       </div>
 
-                      <span className="shrink-0 text-sm font-medium text-cyan-400">
-                        {plannedTask.plannedMinutes} min
-                      </span>
+                      {/* Partial task */}
+
+                      {plannedTask.partial && (
+                        <div className="mt-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-3">
+
+                          <p className="text-sm text-yellow-400">
+                            Partial task
+                          </p>
+
+                          <p className="mt-1 text-xs text-gray-500">
+                            {plannedTask.fullTaskMinutes -
+                              plannedTask.plannedMinutes}{" "}
+                            minutes remaining after
+                            this plan.
+                          </p>
+
+                        </div>
+                      )}
 
                     </div>
+                  );
+                }
+              )}
 
-                    {/* Partial task */}
-
-                    {plannedTask.partial && (
-                      <div className="mt-3 rounded-lg border border-yellow-400/20 bg-yellow-400/5 p-3">
-
-                        <p className="text-sm text-yellow-400">
-                          Partial task
-                        </p>
-
-                        <p className="mt-1 text-xs text-gray-500">
-                          {plannedTask.fullTaskMinutes -
-                            plannedTask.plannedMinutes}{" "}
-                          minutes remaining after
-                          this plan.
-                        </p>
-
-                      </div>
-                    )}
-
-                  </div>
-                );
-              }
-            )}
-
-          </div>
-        )}
+            </div>
+          )}
 
         {/* No tasks fit */}
 
@@ -578,21 +623,20 @@ function TodayDashboard({
           result.tasks.some(
             (task) => !task.completed
           ) && (
+            <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
 
-          <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+              <p className="text-sm font-medium text-yellow-400">
+                ⚠️ No tasks fit into the available
+                time.
+              </p>
 
-            <p className="text-sm font-medium text-yellow-400">
-              ⚠️ No tasks fit into the
-              available time.
-            </p>
+              <p className="mt-1 text-sm text-gray-500">
+                Increase your available time or
+                complete some tasks first.
+              </p>
 
-            <p className="mt-1 text-sm text-gray-500">
-              Increase your available time or
-              complete some tasks first.
-            </p>
-
-          </div>
-        )}
+            </div>
+          )}
 
         {/* Overflow */}
 
@@ -600,8 +644,8 @@ function TodayDashboard({
           <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
 
             <p className="text-sm font-medium text-yellow-400">
-              ⚠️ {timePlan.overflowMinutes}{" "}
-              minutes of work remain.
+              ⚠️ {timePlan.overflowMinutes} minutes
+              of work remain.
             </p>
 
             <p className="mt-2 text-sm text-gray-500">
@@ -618,16 +662,15 @@ function TodayDashboard({
         {timePlan.availableMinutes > 0 &&
           timePlan.overflowMinutes === 0 &&
           timePlan.plannedTasks.length > 0 && (
+            <div className="mt-5 rounded-xl border border-green-400/20 bg-green-400/5 p-4">
 
-          <div className="mt-5 rounded-xl border border-green-400/20 bg-green-400/5 p-4">
+              <p className="text-sm text-green-400">
+                ✓ All remaining tasks fit within
+                your available time.
+              </p>
 
-            <p className="text-sm font-medium text-green-400">
-              ✓ All remaining tasks fit within
-              your available time.
-            </p>
-
-          </div>
-        )}
+            </div>
+          )}
 
       </div>
 
