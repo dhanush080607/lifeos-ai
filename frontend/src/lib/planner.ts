@@ -1,4 +1,14 @@
-import type { Task, TimePlan } from "../types/context";
+import type {
+  Task,
+  TimePlan,
+  PlannedTask,
+} from "../types/context";
+
+/*
+ * ============================================
+ * NUMBER WORDS
+ * ============================================
+ */
 
 const numberWords: Record<string, number> = {
   zero: 0,
@@ -16,6 +26,12 @@ const numberWords: Record<string, number> = {
   twelve: 12,
 };
 
+/*
+ * ============================================
+ * PARSE NUMBER
+ * ============================================
+ */
+
 function parseNumber(value: string): number {
   const normalized = value.toLowerCase().trim();
 
@@ -23,16 +39,50 @@ function parseNumber(value: string): number {
     return numberWords[normalized];
   }
 
-  return Number(normalized);
+  const number = Number(normalized);
+
+  return Number.isFinite(number) ? number : 0;
 }
 
+/*
+ * ============================================
+ * PARSE AVAILABLE TIME
+ * ============================================
+ *
+ * Supports:
+ *
+ * "2 hours"
+ * "two hours"
+ * "90 minutes"
+ * "1 hour 30 minutes"
+ * "two hours and 30 minutes"
+ * "Not specified"
+ */
+
 function parseAvailableMinutes(value: string): number {
-  const text = value.toLowerCase();
+  if (!value) {
+    return 0;
+  }
+
+  const text = value.toLowerCase().trim();
+
+  if (
+    !text ||
+    text === "not specified" ||
+    text === "none"
+  ) {
+    return 0;
+  }
 
   let minutes = 0;
 
+  const numberPattern =
+    "\\d+(?:\\.\\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve";
+
   const hourMatch = text.match(
-    /(\d+(?:\.\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s*hours?/
+    new RegExp(
+      `(${numberPattern})\\s*hours?`
+    )
   );
 
   const minuteMatch = text.match(
@@ -40,57 +90,137 @@ function parseAvailableMinutes(value: string): number {
   );
 
   if (hourMatch) {
-    minutes += parseNumber(hourMatch[1]) * 60;
+    minutes +=
+      parseNumber(hourMatch[1]) * 60;
   }
 
   if (minuteMatch) {
     minutes += Number(minuteMatch[1]);
   }
 
-  return Math.round(minutes);
+  /*
+   * Support plain values such as:
+   *
+   * "120"
+   *
+   * Treat them as minutes.
+   */
+  if (
+    minutes === 0 &&
+    /^\d+$/.test(text)
+  ) {
+    minutes = Number(text);
+  }
+
+  return Math.max(0, Math.round(minutes));
 }
 
 /*
  * ============================================
- * PLANNED TASK
+ * DEADLINE URGENCY
  * ============================================
+ *
+ * Lower number = more urgent.
+ *
+ * 0 = today
+ * 1 = tomorrow
+ * 2 = this week
+ * 3 = later
+ * 4 = unspecified
  */
-export interface PlannedTask {
-  taskIndex: number;
-  plannedMinutes: number;
-  fullTaskMinutes: number;
-  partial: boolean;
-}
 
-/*
- * ============================================
- * TIME PLAN
- * ============================================
- */
-export interface TimePlan {
-  availableMinutes: number;
-  plannedMinutes: number;
-  remainingMinutes: number;
-  overflowMinutes: number;
-  plannedTasks: PlannedTask[];
+function getDeadlineScore(
+  deadline?: string
+): number {
+  const normalized =
+    deadline?.toLowerCase().trim() ?? "";
+
+  if (
+    !normalized ||
+    normalized === "not specified"
+  ) {
+    return 4;
+  }
+
+  /*
+   * Today / tonight
+   */
+  if (
+    normalized.includes("today") ||
+    normalized.includes("tonight")
+  ) {
+    return 0;
+  }
+
+  /*
+   * Tomorrow
+   */
+  if (normalized.includes("tomorrow")) {
+    return 1;
+  }
+
+  /*
+   * Yesterday = overdue
+   */
+  if (normalized.includes("yesterday")) {
+    return 0;
+  }
+
+  /*
+   * Weekday
+   */
+  const weekdayPattern =
+    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/;
+
+  if (weekdayPattern.test(normalized)) {
+    return 2;
+  }
+
+  /*
+   * Month names
+   */
+  const monthPattern =
+    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/;
+
+  if (monthPattern.test(normalized)) {
+    return 3;
+  }
+
+  /*
+   * Numeric dates
+   *
+   * Examples:
+   * 2026-08-20
+   * 08/20
+   * 20/08/2026
+   */
+  if (
+    /\d{1,4}[-/]\d{1,2}(?:[-/]\d{1,4})?/.test(
+      normalized
+    )
+  ) {
+    return 3;
+  }
+
+  /*
+   * Generic future wording
+   */
+  if (
+    normalized.includes("next") ||
+    normalized.includes("later")
+  ) {
+    return 3;
+  }
+
+  return 4;
 }
 
 /*
  * ============================================
  * PRIORITY SCORE
  * ============================================
- *
- * Higher number = more important.
- *
- * We use a score instead of simply sorting
- * high/medium/low so we can combine:
- *
- * - Priority
- * - Deadline urgency
- * - Task duration
- *
- * later if the backend provides more data.
  */
+
 function getPriorityScore(
   priority: Task["priority"]
 ): number {
@@ -111,33 +241,31 @@ function getPriorityScore(
 
 /*
  * ============================================
- * TASK URGENCY SCORE
+ * TASK SCORE
  * ============================================
- *
- * At the moment, Task does not necessarily
- * contain a structured deadline field.
- *
- * Therefore we safely use priority as the
- * primary urgency signal.
- *
- * This keeps the planner compatible with the
- * current backend response.
  */
+
 function getTaskScore(task: Task): number {
+  const deadlineScore =
+    getDeadlineScore(task.deadline);
+
   const priorityScore =
     getPriorityScore(task.priority);
 
   /*
-   * Shorter tasks receive a small efficiency
-   * bonus.
-   *
-   * Example:
-   *
-   * High priority / 30 min
-   * High priority / 180 min
-   *
-   * When priority is equal, completing the
-   * shorter task can create faster progress.
+   * Deadline has the strongest influence.
+   */
+  const deadlineWeight =
+    (4 - deadlineScore) * 100;
+
+  /*
+   * Priority is the second strongest factor.
+   */
+  const priorityWeight =
+    priorityScore * 10;
+
+  /*
+   * Small efficiency bonus.
    */
   const durationBonus =
     task.estimated_minutes <= 30
@@ -146,7 +274,11 @@ function getTaskScore(task: Task): number {
         ? 0.15
         : 0;
 
-  return priorityScore + durationBonus;
+  return (
+    deadlineWeight +
+    priorityWeight +
+    durationBonus
+  );
 }
 
 /*
@@ -154,33 +286,37 @@ function getTaskScore(task: Task): number {
  * CREATE TIME PLAN
  * ============================================
  */
+
 export function createTimePlan(
   tasks: Task[],
   availableTime: string
 ): TimePlan {
   const availableMinutes =
-    parseAvailableMinutes(availableTime);
+    parseAvailableMinutes(
+      availableTime
+    );
 
   /*
-   * Get incomplete tasks.
+   * Only incomplete tasks are planned.
    */
   const incompleteTasks = tasks
     .map((task, index) => ({
       task,
       index,
     }))
-    .filter(({ task }) => !task.completed);
+    .filter(
+      ({ task }) => !task.completed
+    );
 
   /*
    * ==========================================
-   * SMART TASK SORTING
+   * SMART SORTING
    * ==========================================
    *
-   * The planner now considers:
-   *
-   * 1. Priority
-   * 2. Task efficiency
-   * 3. Original order as a stable fallback
+   * 1. Deadline urgency
+   * 2. Priority
+   * 3. Shorter task
+   * 4. Original order
    */
   incompleteTasks.sort((a, b) => {
     const scoreA = getTaskScore(a.task);
@@ -190,42 +326,47 @@ export function createTimePlan(
       return scoreB - scoreA;
     }
 
+    if (
+      a.task.estimated_minutes !==
+      b.task.estimated_minutes
+    ) {
+      return (
+        a.task.estimated_minutes -
+        b.task.estimated_minutes
+      );
+    }
+
     return a.index - b.index;
   });
-
-  let remaining = availableMinutes;
-
-  const plannedTasks: PlannedTask[] = [];
 
   /*
    * ==========================================
    * BUILD PLAN
    * ==========================================
    */
+
+  let remaining = availableMinutes;
+
+  const plannedTasks: PlannedTask[] = [];
+
   for (const item of incompleteTasks) {
     if (remaining <= 0) {
       break;
     }
 
-    const taskMinutes =
-      Math.max(
-        1,
-        item.task.estimated_minutes
-      );
+    const taskMinutes = Math.max(
+      1,
+      item.task.estimated_minutes
+    );
 
     /*
-     * ------------------------------------------
-     * ENTIRE TASK FITS
-     * ------------------------------------------
+     * Entire task fits.
      */
     if (taskMinutes <= remaining) {
       plannedTasks.push({
         taskIndex: item.index,
-
         plannedMinutes: taskMinutes,
-
         fullTaskMinutes: taskMinutes,
-
         partial: false,
       });
 
@@ -235,34 +376,24 @@ export function createTimePlan(
     }
 
     /*
-     * ------------------------------------------
-     * PARTIAL TASK
-     * ------------------------------------------
-     *
-     * Instead of wasting the remaining time,
-     * LifeOS uses it to start the next important
-     * task.
+     * Only part of the task fits.
      */
-    if (remaining > 0) {
-      plannedTasks.push({
-        taskIndex: item.index,
+    plannedTasks.push({
+      taskIndex: item.index,
+      plannedMinutes: remaining,
+      fullTaskMinutes: taskMinutes,
+      partial: true,
+    });
 
-        plannedMinutes: remaining,
-
-        fullTaskMinutes: taskMinutes,
-
-        partial: true,
-      });
-
-      remaining = 0;
-    }
+    remaining = 0;
   }
 
   /*
-   * ============================================
-   * CALCULATE PLAN STATISTICS
-   * ============================================
+   * ==========================================
+   * PLAN STATISTICS
+   * ==========================================
    */
+
   const plannedMinutes =
     availableMinutes - remaining;
 
@@ -279,23 +410,21 @@ export function createTimePlan(
 
   const overflowMinutes = Math.max(
     0,
-    totalIncompleteMinutes - plannedMinutes
+    totalIncompleteMinutes -
+      plannedMinutes
   );
 
   /*
-   * ============================================
-   * RETURN PLAN
-   * ============================================
+   * ==========================================
+   * RETURN
+   * ==========================================
    */
+
   return {
     availableMinutes,
-
     plannedMinutes,
-
     remainingMinutes: remaining,
-
     overflowMinutes,
-
     plannedTasks,
   };
 }

@@ -71,8 +71,25 @@ IMPORTANT PRIORITY RULES:
 
 IMPORTANT RECOMMENDATION RULES:
 
-Choose the single most important action the user should take
-next based on urgency, importance, deadline, and dependencies.
+Choose the single most important incomplete action the user
+should take next.
+
+Consider these factors in this order:
+
+1. Deadline urgency
+2. Priority
+3. Importance
+4. Dependencies
+5. Estimated effort
+
+When two tasks have similar priority, prefer the task with
+the earlier deadline.
+
+A task due tomorrow should generally be recommended before
+a similar task due Friday.
+
+The recommended action must exactly correspond to one of
+the generated task titles.
 
 Return only the requested structured data.
 

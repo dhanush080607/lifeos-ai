@@ -5,17 +5,6 @@ export interface Task {
   priority: Priority;
   estimated_minutes: number;
   completed: boolean;
-
-  /*
-   * Deadline associated with this task.
-   *
-   * Example:
-   * "tomorrow"
-   * "Friday"
-   * "2026-08-18"
-   *
-   * Optional because not every task has a deadline.
-   */
   deadline?: string;
 }
 
@@ -26,15 +15,10 @@ export interface Deadline {
 
 export interface ContextResponse {
   goals: string[];
-
   tasks: Task[];
-
   deadlines: Deadline[];
-
   available_time: string;
-
   recommended_action: string;
-
   reasoning: string;
 }
 
