@@ -97,39 +97,51 @@ export function getDailyIntelligence(
     );
 
     const status: DeadlineStatus =
-      getDeadlineStatus(task.deadline ?? "");
+      getDeadlineStatus(
+        task.deadline ?? ""
+      );
 
     switch (status) {
+      /*
+       * OVERDUE
+       */
+
+      case "overdue":
+        overdueTasks++;
+        break;
+
+      /*
+       * TODAY
+       */
+
       case "today":
         todayTasks++;
         break;
+
+      /*
+       * TOMORROW
+       */
 
       case "tomorrow":
         tomorrowTasks++;
         break;
 
+      /*
+       * UPCOMING
+       */
+
       case "upcoming":
         upcomingTasks++;
         break;
+
+      /*
+       * NO DEADLINE
+       */
 
       case "unspecified":
         break;
     }
   }
-
-  /*
-   * ==========================================
-   * OVERDUE
-   * ==========================================
-   *
-   * The current deadline utility does not
-   * detect overdue deadlines yet.
-   *
-   * Keep this at 0 until explicit overdue
-   * detection is added to deadline.ts.
-   */
-
-  overdueTasks = 0;
 
   /*
    * ==========================================
@@ -176,6 +188,14 @@ export function getDailyIntelligence(
 
   const hasDeadlineTomorrow =
     tomorrowTasks > 0;
+
+  /*
+   * Urgent work means:
+   *
+   * 1. Overdue task
+   * OR
+   * 2. Task due today
+   */
 
   const hasUrgentWork =
     overdueTasks > 0 ||

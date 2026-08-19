@@ -4,6 +4,8 @@ import type {
   PlannedTask,
 } from "../types/context";
 
+import { getDeadlineStatus } from "./deadline";
+
 /*
  * ============================================
  * NUMBER WORDS
@@ -33,15 +35,21 @@ const numberWords: Record<string, number> = {
  */
 
 function parseNumber(value: string): number {
-  const normalized = value.toLowerCase().trim();
+  const normalized = value
+    .toLowerCase()
+    .trim();
 
-  if (numberWords[normalized] !== undefined) {
+  if (
+    numberWords[normalized] !== undefined
+  ) {
     return numberWords[normalized];
   }
 
   const number = Number(normalized);
 
-  return Number.isFinite(number) ? number : 0;
+  return Number.isFinite(number)
+    ? number
+    : 0;
 }
 
 /*
@@ -56,20 +64,27 @@ function parseNumber(value: string): number {
  * "90 minutes"
  * "1 hour 30 minutes"
  * "two hours and 30 minutes"
- * "Not specified"
+ * "120"
+ * "not specified"
  */
 
-function parseAvailableMinutes(value: string): number {
+function parseAvailableMinutes(
+  value: string
+): number {
   if (!value) {
     return 0;
   }
 
-  const text = value.toLowerCase().trim();
+  const text = value
+    .toLowerCase()
+    .trim();
 
   if (
     !text ||
     text === "not specified" ||
-    text === "none"
+    text === "none" ||
+    text === "no time" ||
+    text === "no available time"
   ) {
     return 0;
   }
@@ -79,14 +94,14 @@ function parseAvailableMinutes(value: string): number {
   const numberPattern =
     "\\d+(?:\\.\\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve";
 
+  /*
+   * HOURS
+   */
+
   const hourMatch = text.match(
     new RegExp(
       `(${numberPattern})\\s*hours?`
     )
-  );
-
-  const minuteMatch = text.match(
-    /(\d+)\s*minutes?/
   );
 
   if (hourMatch) {
@@ -94,131 +109,93 @@ function parseAvailableMinutes(value: string): number {
       parseNumber(hourMatch[1]) * 60;
   }
 
+  /*
+   * MINUTES
+   */
+
+  const minuteMatch = text.match(
+    new RegExp(
+      `(${numberPattern})\\s*minutes?`
+    )
+  );
+
   if (minuteMatch) {
-    minutes += Number(minuteMatch[1]);
+    minutes += parseNumber(
+      minuteMatch[1]
+    );
   }
 
   /*
-   * Support plain values such as:
+   * PLAIN NUMBER
    *
+   * Example:
    * "120"
    *
-   * Treat them as minutes.
+   * Treated as minutes.
    */
+
   if (
     minutes === 0 &&
-    /^\d+$/.test(text)
+    /^\d+(?:\.\d+)?$/.test(text)
   ) {
     minutes = Number(text);
   }
 
-  return Math.max(0, Math.round(minutes));
+  return Math.max(
+    0,
+    Math.round(minutes)
+  );
 }
 
 /*
  * ============================================
- * DEADLINE URGENCY
+ * DEADLINE SCORE
  * ============================================
  *
  * Lower number = more urgent.
  *
- * 0 = today
- * 1 = tomorrow
- * 2 = this week
- * 3 = later
+ * 0 = overdue
+ * 1 = today
+ * 2 = tomorrow
+ * 3 = upcoming
  * 4 = unspecified
  */
 
 function getDeadlineScore(
   deadline?: string
 ): number {
-  const normalized =
-    deadline?.toLowerCase().trim() ?? "";
+  const status =
+    getDeadlineStatus(
+      deadline ?? ""
+    );
 
-  if (
-    !normalized ||
-    normalized === "not specified"
-  ) {
-    return 4;
+  switch (status) {
+    case "overdue":
+      return 0;
+
+    case "today":
+      return 1;
+
+    case "tomorrow":
+      return 2;
+
+    case "upcoming":
+      return 3;
+
+    case "unspecified":
+      return 4;
+
+    default:
+      return 4;
   }
-
-  /*
-   * Today / tonight
-   */
-  if (
-    normalized.includes("today") ||
-    normalized.includes("tonight")
-  ) {
-    return 0;
-  }
-
-  /*
-   * Tomorrow
-   */
-  if (normalized.includes("tomorrow")) {
-    return 1;
-  }
-
-  /*
-   * Yesterday = overdue
-   */
-  if (normalized.includes("yesterday")) {
-    return 0;
-  }
-
-  /*
-   * Weekday
-   */
-  const weekdayPattern =
-    /\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/;
-
-  if (weekdayPattern.test(normalized)) {
-    return 2;
-  }
-
-  /*
-   * Month names
-   */
-  const monthPattern =
-    /\b(january|february|march|april|may|june|july|august|september|october|november|december)\b/;
-
-  if (monthPattern.test(normalized)) {
-    return 3;
-  }
-
-  /*
-   * Numeric dates
-   *
-   * Examples:
-   * 2026-08-20
-   * 08/20
-   * 20/08/2026
-   */
-  if (
-    /\d{1,4}[-/]\d{1,2}(?:[-/]\d{1,4})?/.test(
-      normalized
-    )
-  ) {
-    return 3;
-  }
-
-  /*
-   * Generic future wording
-   */
-  if (
-    normalized.includes("next") ||
-    normalized.includes("later")
-  ) {
-    return 3;
-  }
-
-  return 4;
 }
 
 /*
  * ============================================
  * PRIORITY SCORE
  * ============================================
+ *
+ * Higher number = higher priority.
  */
 
 function getPriorityScore(
@@ -243,30 +220,50 @@ function getPriorityScore(
  * ============================================
  * TASK SCORE
  * ============================================
+ *
+ * Higher score = more important.
+ *
+ * Priority order:
+ *
+ * 1. Deadline urgency
+ * 2. Priority
+ * 3. Shorter task bonus
  */
 
-function getTaskScore(task: Task): number {
+function getTaskScore(
+  task: Task
+): number {
   const deadlineScore =
-    getDeadlineScore(task.deadline);
+    getDeadlineScore(
+      task.deadline
+    );
 
   const priorityScore =
-    getPriorityScore(task.priority);
+    getPriorityScore(
+      task.priority
+    );
 
   /*
    * Deadline has the strongest influence.
    */
+
   const deadlineWeight =
     (4 - deadlineScore) * 100;
 
   /*
-   * Priority is the second strongest factor.
+   * Priority is second.
    */
+
   const priorityWeight =
     priorityScore * 10;
 
   /*
-   * Small efficiency bonus.
+   * Small bonus for short tasks.
+   *
+   * This helps LifeOS complete smaller
+   * tasks when urgency and priority are equal.
    */
+
   const durationBonus =
     task.estimated_minutes <= 30
       ? 0.3
@@ -297,8 +294,11 @@ export function createTimePlan(
     );
 
   /*
-   * Only incomplete tasks are planned.
+   * ==========================================
+   * ONLY INCOMPLETE TASKS
+   * ==========================================
    */
+
   const incompleteTasks = tasks
     .map((task, index) => ({
       task,
@@ -313,18 +313,82 @@ export function createTimePlan(
    * SMART SORTING
    * ==========================================
    *
-   * 1. Deadline urgency
+   * 1. Deadline
    * 2. Priority
    * 3. Shorter task
    * 4. Original order
    */
+
   incompleteTasks.sort((a, b) => {
-    const scoreA = getTaskScore(a.task);
-    const scoreB = getTaskScore(b.task);
+    /*
+     * Deadline
+     */
+
+    const deadlineA =
+      getDeadlineScore(
+        a.task.deadline
+      );
+
+    const deadlineB =
+      getDeadlineScore(
+        b.task.deadline
+      );
+
+    if (
+      deadlineA !== deadlineB
+    ) {
+      return (
+        deadlineA -
+        deadlineB
+      );
+    }
+
+    /*
+     * Priority
+     */
+
+    const priorityA =
+      getPriorityScore(
+        a.task.priority
+      );
+
+    const priorityB =
+      getPriorityScore(
+        b.task.priority
+      );
+
+    if (
+      priorityA !== priorityB
+    ) {
+      return (
+        priorityB -
+        priorityA
+      );
+    }
+
+    /*
+     * Combined score
+     *
+     * Keeps the scoring system relevant
+     * when deadline and priority match.
+     */
+
+    const scoreA =
+      getTaskScore(a.task);
+
+    const scoreB =
+      getTaskScore(b.task);
 
     if (scoreA !== scoreB) {
-      return scoreB - scoreA;
+      return (
+        scoreB -
+        scoreA
+      );
     }
+
+    /*
+     * Shorter task first.
+     */
 
     if (
       a.task.estimated_minutes !==
@@ -336,6 +400,10 @@ export function createTimePlan(
       );
     }
 
+    /*
+     * Original order.
+     */
+
     return a.index - b.index;
   });
 
@@ -345,9 +413,11 @@ export function createTimePlan(
    * ==========================================
    */
 
-  let remaining = availableMinutes;
+  let remaining =
+    availableMinutes;
 
-  const plannedTasks: PlannedTask[] = [];
+  const plannedTasks: PlannedTask[] =
+    [];
 
   for (const item of incompleteTasks) {
     if (remaining <= 0) {
@@ -360,13 +430,20 @@ export function createTimePlan(
     );
 
     /*
-     * Entire task fits.
+     * ========================================
+     * ENTIRE TASK FITS
+     * ========================================
      */
-    if (taskMinutes <= remaining) {
+
+    if (
+      taskMinutes <= remaining
+    ) {
       plannedTasks.push({
         taskIndex: item.index,
-        plannedMinutes: taskMinutes,
-        fullTaskMinutes: taskMinutes,
+        plannedMinutes:
+          taskMinutes,
+        fullTaskMinutes:
+          taskMinutes,
         partial: false,
       });
 
@@ -376,12 +453,20 @@ export function createTimePlan(
     }
 
     /*
-     * Only part of the task fits.
+     * ========================================
+     * PARTIAL TASK
+     * ========================================
      */
+
     plannedTasks.push({
       taskIndex: item.index,
-      plannedMinutes: remaining,
-      fullTaskMinutes: taskMinutes,
+
+      plannedMinutes:
+        remaining,
+
+      fullTaskMinutes:
+        taskMinutes,
+
       partial: true,
     });
 
@@ -395,7 +480,8 @@ export function createTimePlan(
    */
 
   const plannedMinutes =
-    availableMinutes - remaining;
+    availableMinutes -
+    remaining;
 
   const totalIncompleteMinutes =
     incompleteTasks.reduce(
@@ -408,11 +494,12 @@ export function createTimePlan(
       0
     );
 
-  const overflowMinutes = Math.max(
-    0,
-    totalIncompleteMinutes -
-      plannedMinutes
-  );
+  const overflowMinutes =
+    Math.max(
+      0,
+      totalIncompleteMinutes -
+        plannedMinutes
+    );
 
   /*
    * ==========================================
@@ -422,9 +509,14 @@ export function createTimePlan(
 
   return {
     availableMinutes,
+
     plannedMinutes,
-    remainingMinutes: remaining,
+
+    remainingMinutes:
+      remaining,
+
     overflowMinutes,
+
     plannedTasks,
   };
 }

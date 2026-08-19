@@ -29,18 +29,8 @@ export function useLifeOSPlan(
    * ============================================
    * USER PLANNING OVERRIDE
    * ============================================
-   *
-   * Example:
-   *
-   * Original:
-   * "2 hours available tonight"
-   *
-   * User selects:
-   * "30 minutes"
-   *
-   * The planner temporarily uses:
-   * "30 minutes"
    */
+
   const [
     availableTimeOverride,
     setAvailableTimeOverride,
@@ -51,34 +41,48 @@ export function useLifeOSPlan(
    * ORIGINAL AVAILABLE TIME
    * ============================================
    */
-  const hasAvailableTime =
-    Boolean(result?.available_time) &&
+
+  const originalAvailableTime =
     result?.available_time
-      .toLowerCase()
-      .trim() !== "not specified";
+      ?.trim() ?? "";
+
+  const normalizedAvailableTime =
+    originalAvailableTime.toLowerCase();
+
+  const hasAvailableTime =
+    Boolean(originalAvailableTime) &&
+    normalizedAvailableTime !==
+      "not specified" &&
+    normalizedAvailableTime !==
+      "none" &&
+    normalizedAvailableTime !==
+      "no time" &&
+    normalizedAvailableTime !==
+      "no available time";
 
   /*
    * ============================================
    * CURRENT PLANNING TIME
    * ============================================
    *
-   * Override takes priority.
+   * User override takes priority.
    *
-   * Otherwise use the AI-extracted available time.
+   * Otherwise use the available time extracted
+   * by the AI.
    */
+
   const planningTime =
     availableTimeOverride ??
     (hasAvailableTime
-      ? result?.available_time ?? ""
+      ? originalAvailableTime
       : "");
 
   /*
    * ============================================
    * GENERATE TIME PLAN
    * ============================================
-   *
-   * useMemo prevents unnecessary recalculation.
    */
+
   const timePlan = useMemo(() => {
     if (!result || !planningTime) {
       return EMPTY_TIME_PLAN;
@@ -94,11 +98,21 @@ export function useLifeOSPlan(
    * ============================================
    * SET AVAILABLE TIME
    * ============================================
+   *
+   * Example:
+   *
+   * "15 minutes"
+   * "30 minutes"
+   * "1 hour"
+   * "2 hours"
    */
+
   const setAvailableTime = (
     time: string
   ) => {
-    setAvailableTimeOverride(time);
+    setAvailableTimeOverride(
+      time.trim()
+    );
   };
 
   /*
@@ -106,12 +120,19 @@ export function useLifeOSPlan(
    * RESET AVAILABLE TIME
    * ============================================
    *
-   * Returning to the original AI-detected
+   * Return to the original AI-detected
    * available time.
    */
+
   const resetAvailableTime = () => {
     setAvailableTimeOverride(null);
   };
+
+  /*
+   * ============================================
+   * RETURN
+   * ============================================
+   */
 
   return {
     hasAvailableTime,
